@@ -133,8 +133,10 @@
 		  :switch-labels nil)))))
 	
 	(with-open-file (stream
-			 (format nil "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/confusion-matrix/~a-confusion-matrix.txt"
-				 (pathname-name tagged-file))
+			 (format
+			  nil
+			  "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/confusion-matrix/~a-confusion-matrix.txt"
+			  (pathname-name tagged-file))
 			 :direction :output
 			 :if-exists :supersede
 			 :if-does-not-exist :create)
@@ -142,7 +144,9 @@
 		 (cond 
 		   ((ppcre:scan "keep-pcp"
 				(file-namestring tagged-file))
-		    (cons "PCP" *upostag-value-list*))
+		    (sort
+		     (cons "PCP" (copy-seq *upostag-value-list*)) ; COPY-SEQ is necessary because SORT is destructive
+		     #'string<))
 		   ((ppcre:scan "mm-revisto"
 				(file-namestring tagged-file))
 		    *macmorpho-upostag-list*)
