@@ -5,7 +5,14 @@
 
 
 (defvar *macmorpho-upostag-list*
-  '("`" "=" "-" "," ";" ":" "!" "?" "/" "." "..." "'" "\"" "(" "((" ")" "))" "[" "$" "ADJ" "ADV" "ADV-KS" "ADV-KS-REL" "ART" "CUR" "IN" "KC" "KS" "N" "NIL" "NPROP" "NUM" "PCP" "PDEN" "PREP" "PROADJ" "PRO-KS" "PRO-KS-REL" "PROPESS" "PROSUB" "V" "VAUX"))
+  '("`" "=" "-" "," ";" ":" "!" "?" "/" "." "..." "'" "\"" "(" "(("
+  ")" "))" "[" "$" "ADJ" "ADV" "ADV-KS" "ADV-KS-REL" "ART" "CUR" "IN"
+  "KC" "KS" "N" "NIL" "NPROP" "NUM" "PCP" "PDEN" "PREP" "PROADJ"
+  "PRO-KS" "PRO-KS-REL" "PROPESS" "PROSUB" "V" "VAUX"))
+
+(defvar *ud-upostag-list*
+  '("ADJ" "ADP" "ADV" "AUX" "CCONJ" "DET" "INTJ" "NOUN" "NUM" "PART"
+  "PRON" "PROPN" "PUNCT" "SCONJ" "SYM" "VERB" "X"))
 
 (defun fix-postags (list-of-sentences &key (switch-labels t))
   (mapc
@@ -89,6 +96,88 @@
 	   (format stream "~a~%" disagreeing-pair))))
    error-hash))
 
+(defun run-exact-matches ()
+  (let ((tagged-files (directory
+		       "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/tagged/*.tagged")))
+    (dolist (tagged-file tagged-files)
+      (let*
+	  ((scenario
+	    ;; if complete or bosque, should be compared to bosque-test
+	    ;; else, should be compared to test to its own dataset
+	    ;; (keep-pcp, remove-pcp, mm-revisto)
+	    (cond 
+	      ((ppcre:scan "\(bosque\)\|\(complete\)"
+			   (file-namestring tagged-file))
+	       'bosque)
+	      ((ppcre:scan "mm-revisto"
+			   (file-namestring tagged-file))
+	       'mm-revisto)
+	      ((ppcre:scan "keep-pcp"
+			   (file-namestring tagged-file))
+	       'keep-pcp)
+	      ((ppcre:scan "remove-pcp"
+			   (file-namestring tagged-file))
+	       'remove-pcp)))
+	   (original
+	    (case scenario
+	      (bosque
+	       (read-conllu
+		"/home/gppassos/Documentos/nlp-general/UD_Portuguese/pt-ud-test.conllu"))
+	      (mm-revisto
+	       (read-conllu
+		"/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-mm-revisto.conllu"))
+	      (keep-pcp
+	       (fix-postags
+		(read-conllu
+		 "/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-keep-pcp.conllu")))
+	      (remove-pcp
+	       (fix-postags
+		(read-conllu
+		 "/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-remove-pcp.conllu")))))
+	   (tagged
+	    (case scenario
+	      ((bosque keep-pcp remove-pcp)	   
+	       (fix-postags
+		(conllu.converters.tags:read-file-tag-suffix tagged-file)))
+	      (mm-revisto
+	       (fix-postags
+		(conllu.converters.tags:read-file-tag-suffix tagged-file)
+		:switch-labels nil))))
+	   (exact-matches (exact-match original tagged
+				       :compared-fields '(cl-conllu:upostag))))
+	;; Writes .conllu file with exact matches
+	(write-conllu
+	 exact-matches
+	 (format
+	  nil
+	  "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/exact-matches/~a-exact-matches.conllu"
+	  (pathname-name tagged-file)))
+	;; With .txt files with exact matches in tags, with underline as separator ("word_TAG")
+	;;   this is only an alternative to the conllu output in case it is easier to read
+	(with-open-file
+	    (stream
+	     (format
+	      nil
+	      "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/exact-matches/~a-exact-matches-tag.txt"
+	      (pathname-name tagged-file))
+	     :direction :output
+	     :if-exists :supersede
+	     :if-does-not-exist :create)
+	  (conllu.converters.tags:write-sentences-tag-suffix-to-stream
+	   exact-matches :stream stream))
+	;; Writes .txt files with only the text of sentences with exact matches
+	(with-open-file
+	    (stream
+	     (format
+	      nil
+	      "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/exact-matches/~a-exact-matches-text-list.txt"
+	      (pathname-name tagged-file))
+	     :direction :output
+	     :if-exists :supersede
+	     :if-does-not-exist :create)
+	  (format stream "~{~a~%~%~}"
+		  (mapcar #'sentence->text exact-matches)))))))
+    
 (defun run ()
   (let ((tagged-files (directory
 		       "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/tagged/*.tagged")))
@@ -174,6 +263,7 @@
 	   :stream stream))))))
 
 ;;;;
+
 ;;;; Not used anymore
 
 ;; (defun beautify-disagreeing-words (disagreeing-list sentence &key (stream *standard-output*) (skip-correct t))
