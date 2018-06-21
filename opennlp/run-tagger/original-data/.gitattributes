@@ -1,0 +1,4 @@
+macmorpho-v1-test-keep-pcp.conllu filter=lfs diff=lfs merge=lfs -text
+macmorpho-v1-test-mm-revisto.conllu filter=lfs diff=lfs merge=lfs -text
+macmorpho-v1-test-remove-pcp.conllu filter=lfs diff=lfs merge=lfs -text
+pt-ud-test.conllu filter=lfs diff=lfs merge=lfs -text
