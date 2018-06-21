@@ -122,18 +122,18 @@
 	    (case scenario
 	      (bosque
 	       (read-conllu
-		"/home/gppassos/Documentos/nlp-general/UD_Portuguese/pt-ud-test.conllu"))
+		"/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/pt-ud-test.conllu"))
 	      (mm-revisto
 	       (read-conllu
-		"/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-mm-revisto.conllu"))
+		"/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/macmorpho-v1-test-mm-revisto.conllu"))
 	      (keep-pcp
 	       (fix-postags
 		(read-conllu
-		 "/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-keep-pcp.conllu")))
+		 "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/macmorpho-v1-test-keep-pcp.conllu")))
 	      (remove-pcp
 	       (fix-postags
 		(read-conllu
-		 "/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-remove-pcp.conllu")))))
+		 "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/macmorpho-v1-test-remove-pcp.conllu")))))
 	   (tagged
 	    (case scenario
 	      ((bosque keep-pcp remove-pcp)	   
@@ -202,15 +202,15 @@
 	     (original
 	      (case scenario
 		(bosque
-		 (read-conllu "/home/gppassos/Documentos/nlp-general/UD_Portuguese/pt-ud-test.conllu"))
+		 (read-conllu "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/pt-ud-test.conllu"))
 		(mm-revisto
-		 (read-conllu "/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-mm-revisto.conllu"))
+		 (read-conllu "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/macmorpho-v1-test-mm-revisto.conllu"))
 		(keep-pcp
 		 (fix-postags
-		  (read-conllu "/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-keep-pcp.conllu")))
+		  (read-conllu "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/macmorpho-v1-test-keep-pcp.conllu")))
 		(remove-pcp
 		 (fix-postags
-		  (read-conllu "/home/gppassos/Documentos/nlp-general/macmorpho-UD/macmorpho-v1-test-remove-pcp.conllu")))))
+		  (read-conllu "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/original-data/macmorpho-v1-test-remove-pcp.conllu")))))
 	     (tagged
 	      (case scenario
 		((bosque keep-pcp remove-pcp)	   
