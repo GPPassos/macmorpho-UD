@@ -94,20 +94,20 @@
 
 (defclass token-error-entry ()
   ((sentence-text
-   :accessor entry-sentence-text
-   :initarg :sentence-text)
-  (original-tag
-   :accessor entry-original-tag
-   :initarg :original-tag)
-  (predicted-tags
-   :accessor entry-predicted-tags
-   :initarg :predicted-tags) ; alist (tagger . predicted-tag)
-  (sentence-id
-   :accessor entry-sentence-id
-   :initarg :sentence-id)
-  (token-id
-   :accessor entry-token-id
-   :initarg :token-id)))
+    :accessor entry-sentence-text
+    :initarg :sentence-text)
+   (original-tag
+    :accessor entry-original-tag
+    :initarg :original-tag)
+   (predicted-tags
+    :accessor entry-predicted-tags
+    :initarg :predicted-tags) ; alist (tagger . predicted-tag)
+   (sentence-id
+    :accessor entry-sentence-id
+    :initarg :sentence-id)
+   (token-id
+    :accessor entry-token-id
+    :initarg :token-id)))
 
 (defun get-tagged-sentence (token tagged-sentences sentence-index)
   "Find in TAGGED-SENTENCES the sentence corresponding to the
@@ -124,24 +124,24 @@ sentence where TOKEN is."
         output-sentence)))
 
 (defun get-wrong-predicted-tag (original-token tagged-sentence tagged-name)
-    "Find in TAGGED-SENTENCE the token corresponding to ORIGINAL-TOKEN
+  "Find in TAGGED-SENTENCE the token corresponding to ORIGINAL-TOKEN
 and, if its tag is different than the original one, returns a pair 
 '( TAGGED-NAME . predicted-tag )'.
 Otherwise, returns NIL."
-    (let ((tagged-token
-           (find (cl-conllu:token-id original-token)
-                 (cl-conllu:sentence-tokens tagged-sentence)
-                 :key #'cl-conllu:token-id
-                 :test #'equal)))
-      (if (null tagged-token)
-          (error "Tagged token corresponding to token ~a was not found!"
-                 original-token))
-      (if (conllu.evaluate::token-diff original-token tagged-token
-                                       :fields '(cl-conllu:upostag))
-          (cons
-           tagged-name
-           (cl-conllu:token-upostag tagged-token)))))
-        
+  (let ((tagged-token
+         (find (cl-conllu:token-id original-token)
+               (cl-conllu:sentence-tokens tagged-sentence)
+               :key #'cl-conllu:token-id
+               :test #'equal)))
+    (if (null tagged-token)
+        (error "Tagged token corresponding to token ~a was not found!"
+               original-token))
+    (if (conllu.evaluate::token-diff original-token tagged-token
+                                     :fields '(cl-conllu:upostag))
+        (cons
+         tagged-name
+         (cl-conllu:token-upostag tagged-token)))))
+
 (defun get-wrong-predicted-tags (original-token plist-tagged-sentences sentence-index)
   "Returns the alist ('tagger-scenario' . predicted-tag) for every tagger that predicted the tag wrong."
   (remove
@@ -193,18 +193,19 @@ Otherwise, returns NIL."
                 (push new-error-entry token-error-entries)))))))))
 
 (defmethod jsown:to-json ((token-error-entry token-error-entry))
-  (jsown:to-json (jsown:new-js
-             ("sentence-text" (entry-sentence-text token-error-entry))
-             ("original-tag" (entry-original-tag token-error-entry))
-             ("predicted-tags" (mapcar
-                                #'(lambda (predicted-tag-pair)
-                                    (let ((tagged-name (car predicted-tag-pair))
-                                          (upostag (cdr predicted-tag-pair)))
-                                      (jsown:new-js
-                                        (tagged-name upostag))))
-                                (entry-predicted-tags token-error-entry)))
-             ("sentence-id" (entry-sentence-id token-error-entry))
-             ("token-id" (entry-token-id token-error-entry)))))
+  (jsown:to-json
+   (jsown:new-js
+     ("sentence-text" (entry-sentence-text token-error-entry))
+     ("original-tag" (entry-original-tag token-error-entry))
+     ("predicted-tags" (mapcar
+                        #'(lambda (predicted-tag-pair)
+                            (let ((tagged-name (car predicted-tag-pair))
+                                  (upostag (cdr predicted-tag-pair)))
+                              (jsown:new-js
+                                (tagged-name upostag))))
+                        (entry-predicted-tags token-error-entry)))
+     ("sentence-id" (entry-sentence-id token-error-entry))
+     ("token-id" (entry-token-id token-error-entry)))))
 
 (defun write-json (error-entries output-file)
   (with-open-file (stream output-file :direction :output
