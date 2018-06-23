@@ -21,6 +21,7 @@
 (defvar *original-tagged-map* '()
   "A plist of ( original-file . (list of tagged files)) Each tagged file should correspond to an original (gold, reference) file. Thus for each original file there is a set of tagged files.")
 
+
 (defun get-tagged-sentences (original-file original-tagged-map &key (fix-postags? nil) (number-of-sentences))
   "Produces a plist ( tagger-name . tagged-sentences ) for each element in ORIGINAL-TAGGED-MAP corresponding to ORIGINAL-FILE."
   (let ((tagged-files
@@ -71,20 +72,25 @@
 	(cl-conllu:sentence-tokens sentence)))
    list-of-sentences))
 
-
-
+(defun list-to-1d-array (a-list)
+  (assert (listp a-list))
+  (let ((array (make-array (length a-list)
+                           :initial-contents a-list)))
+    (assert (typep array 'simple-array))
+    array))
 
 (defun read-file (file &key (fix-postags? nil))
-  (funcall
-   (if fix-postags?
-       #'fix-postags
-       #'identity)
+  (list-to-1d-array
    (funcall
-    (if (equal (pathname-type file)
-               "conllu")
-        #'cl-conllu:read-conllu
-        #'conllu.converters.tags:read-file-tag-suffix)
-    file)))
+    (if fix-postags?
+        #'fix-postags
+        #'identity)
+    (funcall
+     (if (equal (pathname-type file)
+                "conllu")
+         #'cl-conllu:read-conllu
+         #'conllu.converters.tags:read-file-tag-suffix)
+     file))))
 
 (defclass token-error-entry ()
   ((sentence-text
@@ -103,27 +109,40 @@
    :accessor entry-token-id
    :initarg :token-id)))
 
-(defun get-predicted-tag (original-token tagged-sentence tagged-name)
-  (let ((tagged-token
-         (find (cl-conllu:token-id original-token)
-               (cl-conllu:sentence-tokens tagged-sentence)
-               :key #'cl-conllu:token-id
-               :test #'equal)))
-    (if (conllu.evaluate::token-diff original-token tagged-token
-                                    :fields '(cl-conllu:upostag))
-        (cons
-         tagged-name
-         (cl-conllu:token-upostag tagged-token)))))
-
-(defun get-tagged-sentence (token tagged-sentences)
+(defun get-tagged-sentence (token tagged-sentences sentence-index)
   "Find in TAGGED-SENTENCES the sentence corresponding to the
 sentence where TOKEN is."
-  (find (cl-conllu:sentence-id (cl-conllu:token-sentence token))
-        tagged-sentences
-        :key #'cl-conllu:sentence-id
-        :test #'equal))
+  (let ((output-sentence
+         ;; (find (cl-conllu:sentence->text (cl-conllu:token-sentence token))
+         ;;       tagged-sentences
+         ;;       :key #'cl-conllu:sentence->text
+         ;;       :test #'equal)
+         (aref tagged-sentences sentence-index)))
+    (if (null output-sentence)
+        (error "Tagged sentence corresponding to token ~a was not found!"
+               token)
+        output-sentence)))
+
+(defun get-wrong-predicted-tag (original-token tagged-sentence tagged-name)
+    "Find in TAGGED-SENTENCE the token corresponding to ORIGINAL-TOKEN
+and, if its tag is different than the original one, returns a pair 
+'( TAGGED-NAME . predicted-tag )'.
+Otherwise, returns NIL."
+    (let ((tagged-token
+           (find (cl-conllu:token-id original-token)
+                 (cl-conllu:sentence-tokens tagged-sentence)
+                 :key #'cl-conllu:token-id
+                 :test #'equal)))
+      (if (null tagged-token)
+          (error "Tagged token corresponding to token ~a was not found!"
+                 original-token))
+      (if (conllu.evaluate::token-diff original-token tagged-token
+                                       :fields '(cl-conllu:upostag))
+          (cons
+           tagged-name
+           (cl-conllu:token-upostag tagged-token)))))
         
-(defun get-wrong-predicted-tags (original-token plist-tagged-sentences)
+(defun get-wrong-predicted-tags (original-token plist-tagged-sentences sentence-index)
   "Returns the alist ('tagger-scenario' . predicted-tag) for every tagger that predicted the tag wrong."
   (remove
    nil
@@ -131,9 +150,10 @@ sentence where TOKEN is."
     #'(lambda (pair)
         (let ((tagged-name (car pair))
               (tagged-sentences (cdr pair)))
-          (get-predicted-tag
+          (get-wrong-predicted-tag
            original-token
-           (get-tagged-sentence original-token tagged-sentences)
+           (get-tagged-sentence original-token tagged-sentences
+                                sentence-index)
            tagged-name)))
     plist-tagged-sentences)))
 
@@ -154,34 +174,42 @@ sentence where TOKEN is."
   ;; Therefore this functions receives an original list with all tagged list corresponding to it
   ;; PLIST-TAGGED-SENTENCES is a plist ( tagger-name . tagged-sentences )
   (let ((token-error-entries '()))
-    (dolist (sentence original-sentences token-error-entries)
-      (dolist (token (cl-conllu:sentence-tokens sentence))
-        (let ((wrong-predicted-tags
-               (get-wrong-predicted-tags
-                token
-                plist-tagged-sentences))) ; non-nil if there is any error
-          (when wrong-predicted-tags
-            (let ((new-error-entry
-                   (make-instance 'token-error-entry
-                                  :sentence-text (pretty-sentence-text sentence token)
-                                  :original-tag (cl-conllu:token-upostag token)
-                                  :predicted-tags (get-wrong-predicted-tags
-                                                   token
-                                                   plist-tagged-sentences)
-                                  :sentence-id (cl-conllu:sentence-id sentence)
-                                  :token-id (cl-conllu:token-id token))))
-              (push new-error-entry token-error-entries))))))))
+    (dotimes (sentence-index (length original-sentences) token-error-entries)
+      (let ((sentence (aref original-sentences sentence-index)))
+        (dolist (token (cl-conllu:sentence-tokens sentence))
+          (let ((wrong-predicted-tags
+                 (get-wrong-predicted-tags
+                  token
+                  plist-tagged-sentences
+                  sentence-index))) ; non-nil if there is any error
+            (when wrong-predicted-tags
+              (let ((new-error-entry
+                     (make-instance 'token-error-entry
+                                    :sentence-text (pretty-sentence-text sentence token)
+                                    :original-tag (cl-conllu:token-upostag token)
+                                    :predicted-tags wrong-predicted-tags
+                                    :sentence-id (cl-conllu:sentence-id sentence)
+                                    :token-id (cl-conllu:token-id token))))
+                (push new-error-entry token-error-entries)))))))))
 
 (defmethod jsown:to-json ((token-error-entry token-error-entry))
   (jsown:to-json (jsown:new-js
              ("sentence-text" (entry-sentence-text token-error-entry))
              ("original-tag" (entry-original-tag token-error-entry))
-             ("predicted-tags" (entry-predicted-tags token-error-entry))
+             ("predicted-tags" (mapcar
+                                #'(lambda (predicted-tag-pair)
+                                    (let ((tagged-name (car predicted-tag-pair))
+                                          (upostag (cdr predicted-tag-pair)))
+                                      (jsown:new-js
+                                        (tagged-name upostag))))
+                                (entry-predicted-tags token-error-entry)))
              ("sentence-id" (entry-sentence-id token-error-entry))
              ("token-id" (entry-token-id token-error-entry)))))
 
-(defun write-json (error-entries)
-  (print (jsown:to-json error-entries) *standard-output*))
+(defun write-json (error-entries output-file)
+  (with-open-file (stream output-file :direction :output
+                          :if-exists :supersede)
+    (princ (jsown:to-json error-entries) stream)))
 
 (defun run ()
   (let ((*original-files*
@@ -208,19 +236,22 @@ sentence where TOKEN is."
            ("pt-ud-test"
             . ,(append
                 (directory "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/tagged/pt-bosque-*.tagged")
-                (directory "pt-remove-pcp-*-complete*.tagged"))))))
-  
-  (dolist (original-file *original-files*)
-    (let ((fix-postags
-           (if (member (pathname-name original-file)
-                       '("pt-ud-test.conllu" "macmorpho-v1-test-mm-revisto.conllu"))
-               nil
-               t)))
-      (let* ((original-sentences (read-file original-file
-                                           :fix-postags? fix-postags))
-            (plist-tagged-sentences
-             (get-tagged-sentences original-file *original-tagged-map*
-                                   :fix-postags? fix-postags
-                                   :number-of-sentences (length original-sentences))))
-        (write-json (produce-error-entries original-sentences plist-tagged-sentences)))))))
+                (directory "pt-remove-pcp-*-complete*.tagged")))))
+        (output-dir "/home/gppassos/Documentos/nlp-general/macmorpho-UD/opennlp/run-tagger/errors-listed"))
+    
+    (dolist (original-file *original-files*)
+      (gc)
+      (let ((fix-postags
+             (if (member (pathname-name original-file)
+                         '("pt-ud-test.conllu" "macmorpho-v1-test-mm-revisto.conllu"))
+                 nil
+                 t)))
+        (let* ((original-sentences (read-file original-file
+                                              :fix-postags? fix-postags))
+               (plist-tagged-sentences
+                (get-tagged-sentences original-file *original-tagged-map*
+                                      :fix-postags? fix-postags
+                                      :number-of-sentences (length original-sentences))))
+          (write-json (produce-error-entries original-sentences plist-tagged-sentences)
+                      (format nil "~a/~a.json" output-dir (pathname-name original-file))))))))
 
